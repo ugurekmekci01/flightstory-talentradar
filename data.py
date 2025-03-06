@@ -1,52 +1,30 @@
 import pandas as pd
 import json
 
-# Load the Excel file
-file_path = 'Scoring system.xlsx'  # Replace with your file path
-df = pd.read_excel(file_path, header=None)  # Assuming no header in the Excel file
+def excel_to_json(excel_file, json_file):
+    # Load the Excel file
+    df = pd.read_excel(excel_file, engine='openpyxl')
+    
+    # Group by question and category to maintain structure
+    questions = []
+    for (question, category), group in df.groupby(["Question", "Category"]):
+        questions.append({
+            "question": question,
+            "categories": category.split(", "),  # Convert category back to list
+            "answers": group["Answer"].tolist(),
+            "scores": group["Score"].tolist()
+        })
+    
+    # Create JSON structure
+    data = {"questions": questions}
+    
+    # Save to JSON file
+    with open(json_file, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=4, ensure_ascii=False)
+    
+    print(f"JSON file saved as {json_file}")
 
-# Initialize variables
-questions = []
-current_question = None
-current_answers = []
-current_scores = []
-
-# Iterate through the rows
-for index, row in df.iterrows():
-    if pd.notna(row[0]) and row[0].startswith(("Question", "Would you like")):  # Skip metadata rows
-        continue
-    if pd.notna(row[0]):  # Check if the question column has data
-        if current_question:  # Save the previous question and its answers/scores
-            questions.append({
-                "question": current_question,
-                "answers": current_answers,
-                "scores": current_scores
-            })
-        current_question = row[0]  # New question
-        current_answers = []  # Reset answers
-        current_scores = []  # Reset scores
-        # Add the first answer and score (from the same row as the question)
-        if pd.notna(row[1]):  # Check if the answer column has data
-            current_answers.append(row[1])  # Add first answer
-            current_scores.append(row[2])  # Add corresponding score
-    elif pd.notna(row[1]):  # Check if the answer choices column has data
-        current_answers.append(row[1])  # Add subsequent answer
-        current_scores.append(row[2])  # Add corresponding score
-
-# Add the last question and its answers/scores
-if current_question:
-    questions.append({
-        "question": current_question,
-        "answers": current_answers,
-        "scores": current_scores
-    })
-
-# Convert to JSON-like structure
-json_data = {"questions": questions}
-
-# Print the JSON-like structure
-print(json.dumps(json_data, indent=4))
-
-# Optionally, save to a JSON file
-with open('output2.json', 'w') as f:
-    json.dump(json_data, f, indent=4)
+# Example usage
+excel_file = "/Users/ugurekmekci/VSCodeProjects/flightstory-talentradar/surway_scorechart.xlsx"  # Replace with actual Excel file
+json_file = "scorechart.json"  # Desired output JSON file name
+excel_to_json(excel_file, json_file)
