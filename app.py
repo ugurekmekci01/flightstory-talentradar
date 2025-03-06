@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import json
 import plotly.express as px
-import random
+import random, glob, os
+from send_telegram import send_to_telegram
 
 # Load the survey questions from the JSON file
 def load_survey_data(json_file="scorechart.json"):
@@ -50,6 +51,8 @@ def enrich_data(total_score, category_scores):
     return [total_score, category_scores, best_category, worst_category, best_score, worst_score]
 
 # Visualization functions
+import plotly.express as px
+
 def plot_position_among_candidates(df_all_results, current_respondent_score, width=800, height=600):
     # Sort by TotalScore
     df_all_results_sorted = df_all_results.sort_values(by="TotalScore", ascending=False)
@@ -60,11 +63,21 @@ def plot_position_among_candidates(df_all_results, current_respondent_score, wid
 
     # Rank chart
     fig = px.bar(df_all_results_sorted.head(10), x="FullName", y="TotalScore", 
-                 color="TotalScore", title=f"Ranking of Current Respondent: {rank}/{total_respondents}")
+                 color="TotalScore", color_continuous_scale="Viridis",  # Explicit color scale
+                 title=f"Ranking of Current Respondent: {rank}/{total_respondents}")
+    
     fig.update_layout(xaxis_title="Respondent", yaxis_title="Total Score", template="plotly_white",
                       width=width, height=height)
-    
+
+    image_path = "charts/rank.png"
+    fig.write_image(image_path)
+
+    # Send the image to Telegram
+    message = f"📊 Ranking Update: The new respondent is ranked #{rank} out of {total_respondents} participants."
+    send_to_telegram(message, image_path)
+
     return fig
+
 
 def plot_top_performers(df_all_results, width=800, height=600):
     # Sort by TotalScore
@@ -116,6 +129,11 @@ def plot_top_6_categories(df, width=800, height=600):
                  title="Top 6 Categories of the Respondent")
     fig.update_layout(xaxis_title="Score", yaxis_title="Category", template="plotly_white",
                       width=width, height=height)
+    
+    image_path = "charts/top_6_categories.png"
+    fig.write_image(image_path)
+    send_to_telegram("Top 6 Skills!", image_path)
+
     
     return fig
 
@@ -170,6 +188,8 @@ def main():
 
     # Aggregate Results
     if st.button("Submit"):
+        for file in glob.glob("charts/*"):
+            os.remove(file)
         # Calculate scores and enrich data
         total_score, category_scores = calculate_scores(data, responses)
         enriched_data = enrich_data(total_score, category_scores)
@@ -184,23 +204,23 @@ def main():
         st.session_state.df_all_results = pd.concat([st.session_state.df_all_results, df_new_respondant_result], ignore_index=True)
 
         # Display the results
-        st.dataframe(df_new_respondant_result)
+        #st.dataframe(df_new_respondant_result)
         
         # Display Business Stakeholder Charts
-        st.title("Top 6 Categories of the Respondent")
+        st.title("Top 6 Strengths of the Respondent")
         st.plotly_chart(plot_top_6_categories(df_new_respondant_result))
 
         st.title("Ranking of Current Respondent Among All Candidates")
         st.plotly_chart(plot_position_among_candidates(st.session_state.df_all_results, df_new_respondant_result.iloc[0]))
 
-        st.title("Top 5 Performers")
-        st.plotly_chart(plot_top_performers(st.session_state.df_all_results))
+        # st.title("Top 5 Performers")
+        # st.plotly_chart(plot_top_performers(st.session_state.df_all_results))
 
         st.title("Category Comparison: Current Submission vs Historical Data")
         st.plotly_chart(plot_category_comparison(st.session_state.df_all_results, df_new_respondant_result.iloc[0]))
 
-        st.title("Category Score Distribution Across All Respondents")
-        st.plotly_chart(plot_category_distribution(st.session_state.df_all_results))
+        # st.title("Category Score Distribution Across All Respondents")
+        # st.plotly_chart(plot_category_distribution(st.session_state.df_all_results))
 
 
 # Run the app

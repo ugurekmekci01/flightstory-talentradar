@@ -8,6 +8,3 @@ def test_send_telegram():
     # Call the function to send a message and image by passing them as arguments
     send_telegram.execute_send_telegram(message, image_path)
 
-# Run the test
-if __name__ == "__main__":
-    test_send_telegram()
