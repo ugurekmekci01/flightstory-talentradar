@@ -45,6 +45,7 @@ def show_gauge_chart(score, full_name):
         mode="gauge+number",
         value=score,
         title={'text': full_name, 'font': {'size': 24}},
+        number={'suffix': f"/100"},  # Display the total score format (e.g., 30/100)
         gauge={
             'axis': {'range': [-60, 100]},
             'steps': [
@@ -58,17 +59,27 @@ def show_gauge_chart(score, full_name):
             'bar': {'color': "white", 'thickness': 0.3}  # Basic needle
         }
     ))
-    
+
     # Display in Streamlit
     st.markdown("<div style='display: flex; justify-content: center;'>", unsafe_allow_html=True)
     st.plotly_chart(fig)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # Add a description below the gauge chart
+    st.markdown(f"<h4 style='text-align: center; color: #888;'>Your score is {score}/100, which reflects your overall performance in the survey.</h4>", unsafe_allow_html=True)
+
+
 def show_top_skills(category_scores):
     top_skills = sorted(category_scores.items(), key=lambda x: x[1], reverse=True)[:6]
+
     for skill, score in top_skills:
-        st.markdown(f"<h4 style='text-align: center;'>{skill}: {score}</h4>", unsafe_allow_html=True)
-        st.progress(min(max(score / 10, 0), 1))
+        col1, col2 = st.columns([1.5, 4])  # Adjusted column widths
+        with col1:
+            st.markdown(f"<p style='text-align: left; font-weight: bold; font-size: 18px; margin: 5px 0;'>{skill}</p>", unsafe_allow_html=True)
+        with col2:
+            st.progress(min(max(score / 10, 0), 1))
+
+
 
 def main():
     st.title("📋 Survey App with Scoring & Analysis")
