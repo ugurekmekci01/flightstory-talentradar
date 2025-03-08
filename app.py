@@ -36,21 +36,30 @@ def compute_scores(responses):
     
     return total_score, category_scores
 
+import plotly.graph_objects as go
+import streamlit as st
+
+# Function to create a gauge chart with a basic needle
 def show_gauge_chart(score, full_name):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=score,
         title={'text': full_name, 'font': {'size': 24}},
         gauge={
-            'axis': {'range': [-50, 250]},
+            'axis': {'range': [-60, 100]},
             'steps': [
-                {'range': [-50, 50], 'color': "red"},
-                {'range': [50, 100], 'color': "orange"},
-                {'range': [100, 175], 'color': "yellow"},
-                {'range': [175, 250], 'color': "green"}
+                {'range': [-60, 15], 'color': "red"},
+                {'range': [15, 25], 'color': "orange"},
+                {'range': [25, 35], 'color': "yellow"},
+                {'range': [35, 45], 'color': "lightgreen"},
+                {'range': [45, 55], 'color': "green"},
+                {'range': [55, 100], 'color': "darkgreen"}
             ],
+            'bar': {'color': "white", 'thickness': 0.3}  # Basic needle
         }
     ))
+    
+    # Display in Streamlit
     st.markdown("<div style='display: flex; justify-content: center;'>", unsafe_allow_html=True)
     st.plotly_chart(fig)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -82,13 +91,13 @@ def main():
         user_rank, total_participants, percentile = get_sample_ranking()
         
         #st.subheader("🏆 Total Score & Ranking")
-        st.markdown(f"<h2 style='text-align: center;'>Total Score: {total_score}</h2>", unsafe_allow_html=True)
-        st.markdown(f"<h3 style='text-align: center;'>Ranking: {user_rank} out of {total_participants} participants</h3>", unsafe_allow_html=True)
-        st.markdown(f"<h3 style='text-align: center;'>You are in the top {percentile}% of participants!</h3>", unsafe_allow_html=True)
+        #st.markdown(f"<h3 style='text-align: center;'>Ranking: {user_rank} out of {total_participants} participants</h3>", unsafe_allow_html=True)
+        #st.markdown(f"<h3 style='text-align: center;'>Respondent in the top {percentile}% of participants!</h3>", unsafe_allow_html=True)
         
         #st.subheader("🎯 Performance Score Gauge")
         show_gauge_chart(total_score, full_name)
-        
+        st.markdown(f"<h2 style='text-align: center;'>Total Score: {total_score}/100</h2>", unsafe_allow_html=True)
+
         #st.subheader("🏢 Work Status")
         st.markdown(f"<h3 style='text-align: center;'>{'✅ In-Office' if in_office else '🏠 Remote'}</h3>", unsafe_allow_html=True)
         
