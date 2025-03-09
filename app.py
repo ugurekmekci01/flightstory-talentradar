@@ -4,10 +4,8 @@ import json
 import random
 import plotly.graph_objects as go
 import os
-
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import io
-
 import send_telegram
 
 # Load survey template
@@ -55,10 +53,7 @@ def get_alignment_description(score):
     else:
         return "Unaligned"
 
-import plotly.io as pio
-from PIL import Image, ImageDraw, ImageFont
-
-def show_gauge_chart(score, full_name, save_as_image=False):
+def show_gauge_chart(score, full_name, in_office_status=None, top_skills=None, save_as_image=False):
     alignment_description = get_alignment_description(score)
     
     fig = go.Figure(go.Indicator(
@@ -85,7 +80,15 @@ def show_gauge_chart(score, full_name, save_as_image=False):
 
         # Open the image using PIL
         image = Image.open(image_path)
-        draw = ImageDraw.Draw(image)
+        img_width, img_height = image.size
+
+        # Increase the height to accommodate bars
+        new_height = img_height + 200  # Adjust this value as needed
+        new_image = Image.new("RGB", (img_width, new_height), "white")
+        new_image.paste(image, (0, 0))
+
+        # Draw on the new image
+        draw = ImageDraw.Draw(new_image)
 
         # Define font (fallback to default if not found)
         font_path = "/Users/ugurekmekci/VSCodeProjects/flightstory-talentradar/Arial.ttf"
@@ -96,17 +99,67 @@ def show_gauge_chart(score, full_name, save_as_image=False):
             print("Font not found, using default.")
 
 
-        # Get image dimensions
-        img_width, img_height = image.size
+        # Add top skills as horizontal bars
+        if top_skills:
+            skill_bar_height = 20  # Height of each bar
+            skill_bar_spacing = 40  # Spacing between bars
+            skill_bar_start_y = img_height + 20  # Start drawing bars closer to the gauge chart
+
+            # Calculate maximum skill name width for alignment
+            max_skill_width = max([draw.textlength(skill, font=font) for skill in top_skills.keys()])
+            bar_start_x = 50 + max_skill_width + 20  # Bars start after skill names with padding
+            bar_end_x = img_width - 50  # Bars stretch to the right edge with padding
+
+            # Ensure there's enough space for all bars
+            total_bars_height = len(top_skills) * skill_bar_spacing
+            if skill_bar_start_y + total_bars_height > new_height:
+                new_height = skill_bar_start_y + total_bars_height + 20  # Add extra padding
+                new_image = Image.new("RGB", (img_width, new_height), "white")
+                new_image.paste(image, (0, 0))
+                image = new_image
+                draw = ImageDraw.Draw(image)
+
+            for i, (skill, score) in enumerate(top_skills.items()):
+                skill_bar_y = skill_bar_start_y + i * skill_bar_spacing
+                rounded_score = round(score, 1)
+                
+                # Draw the skill name
+                draw.text(
+                    (50, skill_bar_y),  # Skill names start at x=50
+                    f"{skill}", 
+                    font=font, 
+                    fill="black"
+                )
+                
+                # Draw the bar
+                bar_width = (bar_end_x - bar_start_x) * (rounded_score / 10)  # Stretch bar based on score
+                draw.rectangle(
+                    [(bar_start_x, skill_bar_y), 
+                    (bar_start_x + bar_width, skill_bar_y + skill_bar_height)], 
+                    fill="lightblue"
+                )
+                
+                # Draw the score at the end of the bar
+                draw.text(
+                    (bar_end_x + 10, skill_bar_y),  # Scores are placed to the right of the bars
+                    f"{rounded_score}", 
+                    font=font, 
+                    fill="black"
+                )
+
+        # Add alignment description
         text_position = (img_width // 2, img_height - 50)  # Position near bottom
+        text_color = "lightblue"
+        draw.text(text_position, alignment_description, font=font, fill="black", anchor="mm")
 
-        # Add text overlay
-        text_color = "black"
-        draw.text(text_position, alignment_description, font=font, fill=text_color, anchor="mm", stroke_width=2, stroke_fill="white")
-
-
+        # Add in-office status
+        status_text = f"{'In-Office' if in_office_status else 'Remote'}"
+        status_position = (img_width // 2, img_height - 20)
+        status_color = "green" if in_office_status else "orange"  # Green for In-Office, Yellow for Remote
+        draw.text(status_position, status_text, font=font, fill=status_color, anchor="mm")
+                
         # Save updated image
-        image.save(image_path)
+        new_image.save(image_path)
         return image_path
 
     # Show in Streamlit if not saving
@@ -115,7 +168,6 @@ def show_gauge_chart(score, full_name, save_as_image=False):
     st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown(f"<h4 style='text-align: center; color: #888;'>{alignment_description}</h4>", unsafe_allow_html=True)
-
 
 def show_top_skills(category_scores):
     top_skills = sorted(category_scores.items(), key=lambda x: x[1], reverse=True)[:6]
@@ -164,24 +216,26 @@ def main():
     if st.button("Simulate"):
         alignment_description = get_alignment_description(score_input)
         message = f"Simulation complete! Score: {score_input}/100\nAlignment: {alignment_description}"
-        image_path = show_gauge_chart(score_input, "Isa May", save_as_image=True)
-        st.image(image_path, use_container_width=True)
+        status = random.choice([True, False])
+        top_skills = {
+            "Skill 1": max(score_input / 10, 0.1),
+            "Skill 2": max(score_input / 10, 0.1),
+            "Skill 3": max(score_input / 9, 0.1),
+            "Skill 4": max(score_input / 10, 0.1),
+            "Skill 5": max(score_input / 9, 0.1),
+            "Skill 6": max(score_input / 10, 0.1)
+        }
+        show_gauge_chart(score_input, "Isa May")
+        image_path = show_gauge_chart(score_input, "Isa May", in_office_status=status, top_skills=top_skills, save_as_image=True)
+        #st.image(image_path, use_container_width=True)
 
-        status = random.choice(["✅ In-Office", "🏠 Remote"])
-        st.markdown(f"<h3 style='text-align: center;'>{status}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='text-align: center;'>{'✅ In-Office' if status else '🏠 Remote'}</h3>", unsafe_allow_html=True)
 
-        show_top_skills({
-            "Simulated Skill 1": max(score_input / 10, 0.1),
-            "Simulated Skill 2": max(score_input / 10, 0.1),
-            "Simulated Skill 3": max(score_input / 9, 0.1),
-            "Simulated Skill 4": max(score_input / 10, 0.1),
-            "Simulated Skill 5": max(score_input / 9, 0.1),
-            "Simulated Skill 6": max(score_input / 10, 0.1)
-        })
+        show_top_skills(top_skills)
 
         if score_input >= 55:
             send_telegram.send_to_telegram(message, image_path)
-        #os.remove(image_path)
+        # #os.remove(image_path)
         
         
 if __name__ == "__main__":
