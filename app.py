@@ -166,13 +166,10 @@ def main():
         message = f"Simulation complete! Score: {score_input}/100\nAlignment: {alignment_description}"
         image_path = show_gauge_chart(score_input, "Isa May", save_as_image=True)
         st.image(image_path, use_container_width=True)
-        st.markdown(f"<h3 style='text-align: center;'>{alignment_description}</h3>", unsafe_allow_html=True)
-        
 
-        send_telegram.send_to_telegram(message, image_path)
-        #os.remove(image_path)
-        
-        st.markdown(f"<h2 style='text-align: center;'>Total Score: {score_input}/100</h2>", unsafe_allow_html=True)
+        status = random.choice(["✅ In-Office", "🏠 Remote"])
+        st.markdown(f"<h3 style='text-align: center;'>{status}</h3>", unsafe_allow_html=True)
+
         show_top_skills({
             "Simulated Skill 1": max(score_input / 10, 0.1),
             "Simulated Skill 2": max(score_input / 10, 0.1),
@@ -181,6 +178,11 @@ def main():
             "Simulated Skill 5": max(score_input / 9, 0.1),
             "Simulated Skill 6": max(score_input / 10, 0.1)
         })
+
+        if score_input >= 55:
+            send_telegram.send_to_telegram(message, image_path)
+        #os.remove(image_path)
+        
         
 if __name__ == "__main__":
     main()
