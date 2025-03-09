@@ -55,6 +55,9 @@ def get_alignment_description(score):
     else:
         return "Unaligned"
 
+import plotly.io as pio
+from PIL import Image, ImageDraw, ImageFont
+
 def show_gauge_chart(score, full_name, save_as_image=False):
     alignment_description = get_alignment_description(score)
     
@@ -70,22 +73,49 @@ def show_gauge_chart(score, full_name, save_as_image=False):
                 {'range': [15, 50], 'color': "orange"},
                 {'range': [45, 55], 'color': "yellow"},
                 {'range': [55, 100], 'color': "lightgreen"},
-
             ],
             'bar': {'color': "white", 'thickness': 0.3}
         }
     ))
     
     if save_as_image:
+        # Save Plotly chart as image
         image_path = "gauge_chart.png"
         fig.write_image(image_path)
+
+        # Open the image using PIL
+        image = Image.open(image_path)
+        draw = ImageDraw.Draw(image)
+
+        # Define font (fallback to default if not found)
+        font_path = "/Users/ugurekmekci/VSCodeProjects/flightstory-talentradar/Arial.ttf"
+        try:
+            font = ImageFont.truetype(font_path, 24)  # Adjust size if needed
+        except IOError:
+            font = ImageFont.load_default()
+            print("Font not found, using default.")
+
+
+        # Get image dimensions
+        img_width, img_height = image.size
+        text_position = (img_width // 2, img_height - 50)  # Position near bottom
+
+        # Add text overlay
+        text_color = "black"
+        draw.text(text_position, alignment_description, font=font, fill=text_color, anchor="mm", stroke_width=2, stroke_fill="white")
+
+
+        # Save updated image
+        image.save(image_path)
         return image_path
-    
+
+    # Show in Streamlit if not saving
     st.markdown("<div style='display: flex; justify-content: center;'>", unsafe_allow_html=True)
     st.plotly_chart(fig)
     st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown(f"<h4 style='text-align: center; color: #888;'>{alignment_description}</h4>", unsafe_allow_html=True)
+
 
 def show_top_skills(category_scores):
     top_skills = sorted(category_scores.items(), key=lambda x: x[1], reverse=True)[:6]
@@ -135,10 +165,11 @@ def main():
         alignment_description = get_alignment_description(score_input)
         message = f"Simulation complete! Score: {score_input}/100\nAlignment: {alignment_description}"
         image_path = show_gauge_chart(score_input, "Isa May", save_as_image=True)
-        st.image(image_path, caption=alignment_description, use_container_width=True)
+        st.image(image_path, use_container_width=True)
+        st.markdown(f"<h3 style='text-align: center;'>{alignment_description}</h3>", unsafe_allow_html=True)
         
 
-        #send_telegram.send_to_telegram(message, image_path)
+        send_telegram.send_to_telegram(message, image_path)
         #os.remove(image_path)
         
         st.markdown(f"<h2 style='text-align: center;'>Total Score: {score_input}/100</h2>", unsafe_allow_html=True)
