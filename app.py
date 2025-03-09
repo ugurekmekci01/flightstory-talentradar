@@ -3,6 +3,12 @@ import pandas as pd
 import json
 import random
 import plotly.graph_objects as go
+import os
+
+from PIL import Image
+import io
+
+import send_telegram
 
 # Load survey template
 def load_survey():
@@ -11,7 +17,6 @@ def load_survey():
 
 survey_data = load_survey()
 
-# Sample data for ranking and percentiles
 def get_sample_ranking():
     total_participants = 150
     user_rank = random.randint(1, total_participants)
@@ -36,53 +41,63 @@ def compute_scores(responses):
     
     return total_score, category_scores
 
-import plotly.graph_objects as go
-import streamlit as st
+def get_alignment_description(score):
+    if score >= 55:
+        return "Very Strong Alignment"
+    elif 45 <= score < 55:
+        return "Strong Alignment"
+    elif 35 <= score < 45:
+        return "Aligned"
+    elif 25 <= score < 35:
+        return "Low Alignment"
+    elif 15 <= score < 25:
+        return "Poor Alignment"
+    else:
+        return "Unaligned"
 
-# Function to create a gauge chart with a basic needle
-def show_gauge_chart(score, full_name):
+def show_gauge_chart(score, full_name, save_as_image=False):
+    alignment_description = get_alignment_description(score)
+    
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=score,
         title={'text': full_name, 'font': {'size': 24}},
-        number={'suffix': f"/100"},  # Display the total score format (e.g., 30/100)
+        number={'suffix': f"/100"},
         gauge={
-            'axis': {'range': [-60, 100]},
+            'axis': {'range': [0, 100]},
             'steps': [
-                {'range': [-60, 15], 'color': "red"},
-                {'range': [15, 25], 'color': "orange"},
-                {'range': [25, 35], 'color': "yellow"},
-                {'range': [35, 45], 'color': "lightgreen"},
-                {'range': [45, 55], 'color': "green"},
-                {'range': [55, 100], 'color': "darkgreen"}
+                {'range': [0, 15], 'color': "red"},
+                {'range': [15, 50], 'color': "orange"},
+                {'range': [45, 55], 'color': "yellow"},
+                {'range': [55, 100], 'color': "lightgreen"},
+
             ],
-            'bar': {'color': "white", 'thickness': 0.3}  # Basic needle
+            'bar': {'color': "white", 'thickness': 0.3}
         }
     ))
-
-    # Display in Streamlit
+    
+    if save_as_image:
+        image_path = "gauge_chart.png"
+        fig.write_image(image_path)
+        return image_path
+    
     st.markdown("<div style='display: flex; justify-content: center;'>", unsafe_allow_html=True)
     st.plotly_chart(fig)
     st.markdown("</div>", unsafe_allow_html=True)
-
-    # Add a description below the gauge chart
-    st.markdown(f"<h4 style='text-align: center; color: #888;'>Your score is {score}/100, which reflects your overall performance in the survey.</h4>", unsafe_allow_html=True)
-
+    
+    st.markdown(f"<h4 style='text-align: center; color: #888;'>{alignment_description}</h4>", unsafe_allow_html=True)
 
 def show_top_skills(category_scores):
     top_skills = sorted(category_scores.items(), key=lambda x: x[1], reverse=True)[:6]
-
     for skill, score in top_skills:
-        col1, col2 = st.columns([1.5, 4])  # Adjusted column widths
+        col1, col2 = st.columns([1.5, 4])
         with col1:
             st.markdown(f"<p style='text-align: left; font-weight: bold; font-size: 18px; margin: 5px 0;'>{skill}</p>", unsafe_allow_html=True)
         with col2:
             st.progress(min(max(score / 10, 0), 1))
 
-
-
 def main():
-    st.title("📋 Survey App with Scoring & Analysis")
+    st.title("📋 Talent Radar PoC")
     
     with st.form("survey_form"):
         first_name = st.text_input("First Name")
@@ -101,18 +116,9 @@ def main():
         total_score, category_scores = compute_scores(responses)    
         user_rank, total_participants, percentile = get_sample_ranking()
         
-        #st.subheader("🏆 Total Score & Ranking")
-        #st.markdown(f"<h3 style='text-align: center;'>Ranking: {user_rank} out of {total_participants} participants</h3>", unsafe_allow_html=True)
-        #st.markdown(f"<h3 style='text-align: center;'>Respondent in the top {percentile}% of participants!</h3>", unsafe_allow_html=True)
-        
-        #st.subheader("🎯 Performance Score Gauge")
         show_gauge_chart(total_score, full_name)
         st.markdown(f"<h2 style='text-align: center;'>Total Score: {total_score}/100</h2>", unsafe_allow_html=True)
-
-        #st.subheader("🏢 Work Status")
         st.markdown(f"<h3 style='text-align: center;'>{'✅ In-Office' if in_office else '🏠 Remote'}</h3>", unsafe_allow_html=True)
-        
-        #st.subheader("🏅 Top 6 Skills")
         show_top_skills(category_scores)
         
         st.subheader("📝 Survey Responses")
@@ -120,9 +126,30 @@ def main():
             "Question": list(responses.keys()),
             "Selected Answer": list(responses.values()),
         })
-        st.markdown("<div style='display: flex; justify-content: center;'>", unsafe_allow_html=True)
         st.dataframe(df)
-        st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.subheader("🎯 Simulate Score")
+    score_input = st.number_input("Enter a score (0-100):", min_value=0, max_value=100, value=50)
+    
+    if st.button("Simulate"):
+        alignment_description = get_alignment_description(score_input)
+        message = f"Simulation complete! Score: {score_input}/100\nAlignment: {alignment_description}"
+        image_path = show_gauge_chart(score_input, "Isa May", save_as_image=True)
+        st.image(image_path, caption=alignment_description, use_container_width=True)
+        
+
+        #send_telegram.send_to_telegram(message, image_path)
+        #os.remove(image_path)
+        
+        st.markdown(f"<h2 style='text-align: center;'>Total Score: {score_input}/100</h2>", unsafe_allow_html=True)
+        show_top_skills({
+            "Simulated Skill 1": max(score_input / 10, 0.1),
+            "Simulated Skill 2": max(score_input / 10, 0.1),
+            "Simulated Skill 3": max(score_input / 9, 0.1),
+            "Simulated Skill 4": max(score_input / 10, 0.1),
+            "Simulated Skill 5": max(score_input / 9, 0.1),
+            "Simulated Skill 6": max(score_input / 10, 0.1)
+        })
         
 if __name__ == "__main__":
     main()
